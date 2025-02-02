@@ -29,10 +29,11 @@ public static class TestRunner
           }
           catch (Exception ex)
           {
-            Console.WriteLine($"❌ Failed: {ex.InnerException?.Message ?? ex.Message}");
+            var targetEx = ex.InnerException ?? ex;
+
+            Console.WriteLine($"❌ Failed: {targetEx}");
           }
         }
-
       }
     }
   }

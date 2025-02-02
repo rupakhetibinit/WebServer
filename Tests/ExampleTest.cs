@@ -46,4 +46,13 @@ public class ExampleTest
 
   }
 
+  [TestMethod]
+  public void Test_Logs_Stack_Trace()
+  {
+    List<int>? ints = [1, 2, 3];
+
+    Assert.ThrowsException<ArgumentException>(delegate { Assert.IsNull(ints); });
+
+  }
+
 }
