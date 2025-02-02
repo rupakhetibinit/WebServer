@@ -13,32 +13,26 @@ public class HttpServer(string ip, int port)
         Console.WriteLine($"Http Server started on {ip}:{port}");
         while (true)
         {
-            var client = await _listener.AcceptTcpClientAsync();
+            using var client = await _listener.AcceptTcpClientAsync();
             _ = HandleConnectionAsync(client);
         }
-        
+
     }
 
-    private async Task HandleConnectionAsync(TcpClient client)
+    private static async Task HandleConnectionAsync(TcpClient client)
     {
-        using (client)
-        await using (var stream = client.GetStream())
-        {
-            var buffer = new byte[4096];
-            
-            var bytesRead = await stream.ReadAsync(buffer);
+        using var stream = client.GetStream();
+        var buffer = new byte[4096];
 
-            var response = BuildHttpResponse("You are connected");
-            var responseBytes = Encoding.ASCII.GetBytes(response);
+        var bytesRead = await stream.ReadAsync(buffer);
 
-            await stream.WriteAsync(responseBytes);
-            
-            stream.Close();
-            
-        }
+        var response = BuildHttpResponse("You are connected");
+        var responseBytes = Encoding.ASCII.GetBytes(response);
+
+        await stream.WriteAsync(responseBytes);
     }
-    
-    private string BuildHttpResponse(string content)
+
+    private static string BuildHttpResponse(string content)
     {
         return $"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {content.Length}\r\n\r\n{content}";
     }

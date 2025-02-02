@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -22,7 +23,7 @@ public class Server(string iPAddress, ushort port)
     }
   }
 
-  private async Task HandleClient(TcpClient client)
+  private static async Task HandleClient(TcpClient client)
   {
     using var stream = client.GetStream();
     byte[] buffer = new byte[1024];
@@ -44,19 +45,82 @@ public class Server(string iPAddress, ushort port)
       await stream.WriteAsync(Encoding.ASCII.GetBytes(response));
       Console.WriteLine($"Sent handshake response: \n{response}");
 
-      await ListenForMessages(client, stream);
+      try
+      {
+        await ListenForMessages(client, stream);
+      }
+      catch (IOException e)
+      {
+        Console.WriteLine($"Client disconnected unexpectedly: {e.Message}");
+      }
+      catch (SocketException e)
+      {
+        Console.WriteLine($"Socket error: {e.Message}");
+      }
+      catch (Exception ex)
+      {
+        Console.WriteLine($"Unknown error : {ex.Message}");
+      }
     }
   }
 
-  private async Task ListenForMessages(TcpClient client, NetworkStream stream)
+  private static async Task ListenForMessages(TcpClient client, NetworkStream stream)
   {
-    byte[] buffer = new byte[1024];
-
     while (client.Connected)
     {
-      int bytesRead = await stream.ReadAsync(buffer);
-      if (bytesRead == 0) break;
-      Console.WriteLine(bytesRead.ToString());
+      var header = await ReadBytes(stream, 2);
+
+      bool fin = (header[0] & 0x80) != 0;
+      byte opcode = (byte)(header[0] & 0x0F);
+      bool hasMask = (header[1] & 0x80) != 0;
+
+      if (!hasMask) throw new Exception("Client Messages must be masked");
+
+      ulong payloadLength = (ulong)(header[1] & 0x7F);
+
+      if (payloadLength == 126)
+      {
+        var lenBytes = await ReadBytes(stream, 2);
+        Array.Reverse(lenBytes);
+        payloadLength = BitConverter.ToUInt16(lenBytes, 0);
+      }
+      else if (payloadLength == 127)
+      {
+        var lenBytes = await ReadBytes(stream, 4);
+        Array.Reverse(lenBytes);
+        payloadLength = BitConverter.ToUInt64(lenBytes, 0);
+      }
+
+      var maskingKey = await ReadBytes(stream, 4);
+      var payload = await ReadBytes(stream, (int)payloadLength);
+
+      UnmaskPayload(payload, maskingKey);
+
+      var message = Encoding.UTF8.GetString(payload);
+      Console.WriteLine($"Recieved : {message}");
+
+    }
+
+  }
+
+  private static async Task<byte[]> ReadBytes(NetworkStream stream, int count)
+  {
+    byte[] buffer = new byte[count];
+    int bytesRead = 0;
+    while (bytesRead < count)
+    {
+      int read = await stream.ReadAsync(buffer.AsMemory(bytesRead, count - bytesRead));
+      if (read == 0) throw new Exception("Connection closed prematurely");
+      bytesRead += read;
+    }
+    return buffer;
+  }
+
+  private static void UnmaskPayload(byte[] payload, byte[] maskingKey)
+  {
+    for (int i = 0; i < payload.Length; i++)
+    {
+      payload[i] = (byte)(payload[i] ^ maskingKey[i % 4]);
     }
   }
 
