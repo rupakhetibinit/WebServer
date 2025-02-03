@@ -4,37 +4,37 @@ namespace TestFramework;
 
 public static class TestRunner
 {
-  public static void Run()
-  {
-    var assembly = Assembly.GetCallingAssembly();
-
-    foreach (var type in assembly.GetTypes())
+    public static void Run()
     {
-      if (type.GetCustomAttribute<TestClassAttribute>() != null)
-      {
-        Console.WriteLine($"Running tests in {type.Name}");
+        var assembly = Assembly.GetCallingAssembly();
 
-        var testMethods = type.GetMethods()
-        .Where(method => method.GetCustomAttribute<TestMethodAttribute>() != null);
-
-        var testClassInstance = Activator.CreateInstance(type);
-
-        foreach (var method in testMethods)
+        foreach (var type in assembly.GetTypes())
         {
-          try
-          {
-            Console.Write($"- Running {method.Name}... ");
-            method.Invoke(testClassInstance, null);
-            Console.WriteLine("✅ Passed");
-          }
-          catch (Exception ex)
-          {
-            var targetEx = ex.InnerException ?? ex;
+            if (type.GetCustomAttribute<TestClassAttribute>() != null)
+            {
+                Console.WriteLine($"Running tests in {type.Name}");
 
-            Console.WriteLine($"❌ Failed: {targetEx}");
-          }
+                var testMethods = type.GetMethods()
+                .Where(method => method.GetCustomAttribute<TestMethodAttribute>() != null);
+
+                var testClassInstance = Activator.CreateInstance(type);
+
+                foreach (var method in testMethods)
+                {
+                    try
+                    {
+                        Console.Write($"- Running {method.Name}... ");
+                        method.Invoke(testClassInstance, null);
+                        Console.WriteLine("✅ Passed");
+                    }
+                    catch (Exception ex)
+                    {
+                        var targetEx = ex.InnerException ?? ex;
+
+                        Console.WriteLine($"❌ Failed: {targetEx}");
+                    }
+                }
+            }
         }
-      }
     }
-  }
 }

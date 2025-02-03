@@ -1,4 +1,4 @@
-﻿using TestFramework;
+using TestFramework;
 
 
 TestRunner.Run();
